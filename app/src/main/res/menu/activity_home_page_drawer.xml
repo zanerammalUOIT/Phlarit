@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Menu file for the navigation drawer"-->
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:showIn="navigation_view">
+
+    <!-- This is the Menu -->
+
+
+    <group android:checkableBehavior="single">
+        <item
+            android:id="@+id/nav_main"
+            android:icon="@drawable/ic_menu_send"
+            android:title="@string/drawer_main" />
+        <item
+            android:id="@+id/nav_photo"
+            android:icon="@drawable/ic_menu_camera"
+            android:title="@string/drawer_photo" />
+        <item
+            android:id="@+id/nav_send"
+            android:icon="@drawable/ic_menu_send"
+            android:title="@string/drawer_send" />
+
+    </group>
+
+    <item android:title="@string/drawer_group_name">
+        <menu>
+
+
+        </menu>
+    </item>
+
+</menu>
