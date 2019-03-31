@@ -34,6 +34,7 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.widget.Toast;
 
+import com.android.volley.AuthFailureError;
 import com.android.volley.Cache;
 import com.android.volley.Network;
 import com.android.volley.Request;
@@ -43,11 +44,15 @@ import com.android.volley.VolleyError;
 import com.android.volley.toolbox.BasicNetwork;
 import com.android.volley.toolbox.DiskBasedCache;
 import com.android.volley.toolbox.HurlStack;
+import com.android.volley.toolbox.JsonArrayRequest;
+import com.android.volley.toolbox.JsonObjectRequest;
+import com.android.volley.toolbox.JsonRequest;
 import com.android.volley.toolbox.StringRequest;
 import com.android.volley.toolbox.Volley;
 
 import org.apache.commons.io.IOUtils;
 
+import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.BufferedInputStream;
@@ -75,12 +80,26 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import android.app.IntentService;
+import android.app.PendingIntent;
+import android.content.Intent;
+import android.util.Log;
+
+import java.io.InputStream;
+import java.net.MalformedURLException;
+import java.net.URL;
+
+
 /**
  * Any fragment used inside the activity must have its
  * onFragment InteractionListener implemented
  */
 public class MainActivity extends AppCompatActivity implements HomeFragment.OnFragmentInteractionListener, PhotoFragment.OnFragmentInteractionListener {
 
+    // Link to php file
+
+    String phpurl = "http://ec2-54-160-8-114.compute-1.amazonaws.com/addRecord.php";
+    RequestQueue requestQueue;
 
     /* The 'hamburger' icon that opens the navigation drawer*/
     private ActionBarDrawerToggle drawerToggle;
@@ -91,36 +110,21 @@ public class MainActivity extends AppCompatActivity implements HomeFragment.OnFr
     /* Related to the design of navigation drawer*/
     private NavigationView navigationView;
 
-    /*Required to receive JSON from the server*/
-    JSONParser jsonParser = new JSONParser();
-    JSONArray getData = null;
-
-    /* URL to read php script from*/
-    private static final String url_add_data = "http://ec2-54-160-8-114.compute-1.amazonaws.com/db_connect.php";
-
     /* Make all Toasts short*/
     int duration = Toast.LENGTH_SHORT;
 
     /* Declare fragments here so they can be initialized when needed*/
     PhotoFragment photoFragment;
     HomeFragment homeFragment;
-    RequestQueue requestQueue;
-    /* Creating the RequestQueue for http requests*/
-
-    Cache cache;
-    Network network;
-
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        network = new BasicNetwork(new HurlStack());
-        cache = new DiskBasedCache(getCacheDir(), 1024 * 1024 * 150);
-        requestQueue = new RequestQueue(cache, network);
-        checkPermissions(this);
 
-        requestQueue.start();
+        requestQueue = RequestQueueSingleton.getInstance(this.getApplicationContext())
+                .getRequestQueue();
+        checkPermissions(this);
 
         /* Create instances of the fragments */
         photoFragment = PhotoFragment.newInstance("0", ("0"));
@@ -145,6 +149,14 @@ public class MainActivity extends AppCompatActivity implements HomeFragment.OnFr
         setupDrawerContent(navigationView);
 
 
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        if (requestQueue != null) {
+            requestQueue.cancelAll("JSONObject");
+        }
     }
 
 
@@ -188,16 +200,84 @@ public class MainActivity extends AppCompatActivity implements HomeFragment.OnFr
                 break;
             case R.id.nav_send:
 
-                Context context = getApplicationContext();
 
+                // Get timestamp
                 SimpleDateFormat simpleDateFormat = new SimpleDateFormat("dd-MM-yy-hh-mm-ss");
                 String format = simpleDateFormat.format(new Date());
-                // Toast toast = Toast.makeText(context, format, duration);
-                // toast.show();
-                new AddRecord().execute(url_add_data);
+                final String time = format;
 
-                // Toast toast1 = Toast.makeText(context, "Execute done", duration);
-                // toast1.show();
+                /* Use SecureRandom to generate an ID */
+                SecureRandom random = new SecureRandom();
+                byte bytes[] = new byte[100];
+                random.nextBytes(bytes);
+                Base64.Encoder encoder = Base64.getUrlEncoder().withoutPadding();
+                String token = encoder.encodeToString(bytes);
+
+                final String id = token;
+
+
+                // For testing purposes just turn a string into a byte array
+                // it will appear as noise if turned into an image
+                final String byteStr = "Placeholder";
+                //byte[] byteArr = byteStr.getBytes();
+                //final String image = byteArr.toString();
+
+
+                try {
+
+                    // Attempt to get whale iamge
+
+                    // Get whale image as byte array
+//                    String whaleUrl = "https://cdn.pixabay.com/photo/2013/02/10/00/20/humpback-79855_960_720.jpg";
+//                    URL imgUrl = new URL(whaleUrl);
+//                    URLConnection connection = imgUrl.openConnection();
+//                    connection.setConnectTimeout(5000);
+//                    connection.setReadTimeout(5000);
+//                    connection.connect();
+//                    final ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+//                    IOUtils.copy(connection.getInputStream(), byteArrayOutputStream);
+                    // final String image = byteArrayOutputStream.toString();
+                    final Context context = getApplicationContext();
+                    final String locale = context.getResources().getConfiguration().locale.getCountry();
+
+                    String url = "http://ec2-54-160-8-114.compute-1.amazonaws.com/addRecord.php";
+                    StringRequest stringRequest = new StringRequest(Request.Method.POST,
+                            url,
+                            new Response.Listener<String>() {
+                                @Override
+                                public void onResponse(String response) {
+                                    Log.d("onResponse", response.toString());
+                                }
+                            },
+                            new Response.ErrorListener() {
+                                @Override
+                                public void onErrorResponse(VolleyError error) {
+
+                                    Log.e("ErrorResponse", error.toString());
+                                }
+
+                            }) {
+                        @Override
+                        protected Map<String, String> getParams() {
+                            Map<String, String> params = new HashMap<String, String>();
+
+                            params.put("id", id.trim());
+                            params.put("image", "Test".trim());
+                            params.put("time", time.trim());
+                            params.put("locale", locale.trim());
+                            return params;
+
+                        }
+
+                    };
+
+
+                    stringRequest.setTag("JSONOBject");
+                    requestQueue.add(stringRequest);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+
                 fragment = photoFragment;
                 break;
 
@@ -262,131 +342,6 @@ public class MainActivity extends AppCompatActivity implements HomeFragment.OnFr
         return super.onOptionsItemSelected(item);
     }
 
-    /* Will attempt to add to the database in the background once launched*/
-
-    class AddRecord extends AsyncTask<String, String, String> {
-
-        @Override
-        protected void onPreExecute() {
-            super.onPreExecute();
-        }
-
-        protected String doInBackground(String... args) {
-            /* Use SecureRandom to generate an ID*/
-            SecureRandom random = new SecureRandom();
-            byte bytes[] = new byte[100];
-            random.nextBytes(bytes);
-            Base64.Encoder encoder = Base64.getUrlEncoder().withoutPadding();
-            String token = encoder.encodeToString(bytes);
-
-            String id = token;
-            String image = null; // later set
-            String time;
-
-            /* For testing purposes, convert a Pixabay image into a byte
-             * array and put it in the databse
-             */
-
-            String whaleUrl = "https://cdn.pixabay.com/photo/2013/02/10/00/20/humpback-79855_960_720.jpg";
-
-            try {
-                URL url = new URL(whaleUrl);
-                URLConnection connection = url.openConnection();
-                connection.setConnectTimeout(5000);
-                connection.setReadTimeout(5000);
-                connection.connect();
-
-                ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-                IOUtils.copy(connection.getInputStream(), byteArrayOutputStream);
-                image = byteArrayOutputStream.toString();
-
-
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-
-
-            SimpleDateFormat simpleDateFormat = new SimpleDateFormat("dd-MM-yy-hh-mm-ss");
-            String format = simpleDateFormat.format(new Date());
-            time = format;
-
-            List<Pair<String, String>> params = new ArrayList<>();
-            params.add(new Pair<>("id", id));
-            params.add(new Pair<>("image", image));
-            params.add(new Pair<>("time", time));
-
-            final Context context = getApplicationContext();
-
-            /* Running the php script specified*/
-            String phpURL = "http://ec2-54-160-8-114.compute-1.amazonaws.com/db_connect.php";
-            StringRequest stringRequest = new StringRequest(Request.Method.GET, phpURL,
-                    new Response.Listener<String>() {
-                        @Override
-                        public void onResponse(String response) {
-                            Log.d("Script", "No error");
-                        }
-                    },
-                    new Response.ErrorListener() {
-                        @Override
-                        public void onErrorResponse(VolleyError error) {
-                            Log.d("Script", "Error with Volley");
-                        }
-
-                    });
-
-            requestQueue.add(stringRequest);
-            Log.d("queue", "done request queue add");
-
-            String connectURL = "http://ec2-54-160-8-114.compute-1.amazonaws.com/db_connect.php";
-
-            try {
-
-                final HashMap<String, String> paramsSend = new HashMap<>();
-                paramsSend.put("id", id);
-                paramsSend.put("image", image);
-                paramsSend.put("time", time);
-                final Context thisContext = getApplicationContext();
-//
-//                RequestQueue requestQueue = Volley.newRequestQueue(thisContext);
-//                String URL = connectURL;
-//                JSONObject jsonObject = new JSONObject();
-//                jsonObject.put("id", id);
-//                jsonObject.put("image", image);
-//                jsonObject.put("time", time);
-//                final String mRequestBody = jsonObject.toString();
-//
-//                StringRequest stringRequest1 = new StringRequest(Request.Method.POST, URL, new
-//                        Response.Listener<String>() {
-//                            @Override
-//                            public void onResponse(String response) {
-//                                Log.i("LOG_VOLLEY", response);
-//                            }
-//                        }, new Response.ErrorListener() {
-//                    @Override
-//                    public void onErrorResponse(VolleyError error) {
-//
-//                    }
-//                }
-//
-//                )
-//
-//
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-
-
-//
-                return null;
-            }
-
-//
-        protected void onPostExecute() {
-
-
-        }
-
-    }
 
     public void checkPermissions(Activity activity) {
         PackageManager packMan = activity.getPackageManager();
@@ -394,6 +349,7 @@ public class MainActivity extends AppCompatActivity implements HomeFragment.OnFr
         int hasRecordPermission = packMan.checkPermission(Manifest.permission.RECORD_AUDIO, activity.getPackageName());
         int hasFineLocationPermission = packMan.checkPermission(Manifest.permission.ACCESS_FINE_LOCATION, activity.getPackageName());
         int hasCoarseLocationPermission = packMan.checkPermission(Manifest.permission.ACCESS_COARSE_LOCATION, activity.getPackageName());
+        int hasInternetPermission = packMan.checkPermission(Manifest.permission.INTERNET, activity.getPackageName());
 
         /* If the API is  greater than 22, we can use runtime permission statements. */
         if (Build.VERSION.SDK_INT >= 23) {
@@ -401,6 +357,7 @@ public class MainActivity extends AppCompatActivity implements HomeFragment.OnFr
             requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}, 1000);
             requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, 1000);
             requestPermissions(new String[]{Manifest.permission.ACCESS_COARSE_LOCATION}, 1000);
+            requestPermissions(new String[]{Manifest.permission.INTERNET}, 1000);
 
         } /* If the API is  greater than 22, we can use runtime permission statements. */
 
@@ -516,11 +473,136 @@ public class MainActivity extends AppCompatActivity implements HomeFragment.OnFr
                     break;
             }
 
+            switch (hasInternetPermission) {
+
+                case ((PackageManager.PERMISSION_GRANTED)): {
+                    Context context = getApplicationContext();
+                    CharSequence text = "Coarse Location permission is granted.";
+                    int duration = Toast.LENGTH_SHORT;
+
+                    Toast toast = Toast.makeText(context, text, duration);
+                    toast.show();
+
+                    break;
+                }
+                case ((PackageManager.PERMISSION_DENIED)): {
+                    Context context = getApplicationContext();
+                    CharSequence text = "Coarse Location permission is denied. Application will not function correctly.";
+                    int duration = Toast.LENGTH_SHORT;
+
+                    Toast toast = Toast.makeText(context, text, duration);
+                    toast.show();
+                    break;
+                }
+                default:
+                    // warn that default statement reached
+                    break;
+            }
+
 
         } /* If the API is lower than 23, we cannot use runtime permission statements, so we must check to see if permission has been granted. */
 
 
     }
 
+//    public class PostDataAsyncTask extends AsyncTask<String, String> {
+//
+//
+//        @Override
+//        protected String doInBackground(Void... params) {
+//            try {
+//
+//
+//
+//                /* For testing purposes, convert a Pixabay image into a byte
+//                 * array and put it in the databse
+//                 */
+//
+//                // Get timestamp
+//                SimpleDateFormat simpleDateFormat = new SimpleDateFormat("dd-MM-yy-hh-mm-ss");
+//                String format = simpleDateFormat.format(new Date());
+//                final String time = format;
+//
+//                /* Use SecureRandom to generate an ID */
+//                SecureRandom random = new SecureRandom();
+//                byte bytes[] = new byte[100];
+//                random.nextBytes(bytes);
+//                Base64.Encoder encoder = Base64.getUrlEncoder().withoutPadding();
+//                String token = encoder.encodeToString(bytes);
+//
+//                final String id = token;
+//
+//
+//                String whaleUrl = "https://cdn.pixabay.com/photo/2013/02/10/00/20/humpback-79855_960_720.jpg";
+//                URL imgUrl = new URL(whaleUrl);
+//                URLConnection connection2 = imgUrl.openConnection();
+//                connection2.setConnectTimeout(5000);
+//                connection2.setReadTimeout(5000);
+//                connection2.connect();
+//                ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+//                IOUtils.copy(connection2.getInputStream(), byteArrayOutputStream);
+//                final String image = byteArrayOutputStream.toString();
+//                Log.d("WhaleByteArray", image);
+//
+//                String postReceiverUrl = "http://ec2-54-160-8-114.compute-1" +
+//                        ".amazonaws.com/addRecord.php";
+//                URL url = new URL(postReceiverUrl);
+//                HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+//                connection.setReadTimeout(10000);
+//                connection.setConnectTimeout(15000);
+//                connection.setRequestMethod("POST");
+//                connection.setDoInput(true);
+//                connection.setDoOutput(true);
+//
+//                Uri.Builder builder = new Uri.Builder()
+//                        .appendQueryParameter("id", id)
+//                        .appendQueryParameter("image", image)
+//                        .appendQueryParameter("time", time);
+//
+//                String query = builder.build().getEncodedQuery();
+//
+//                OutputStream outputStream = connection.getOutputStream();
+//                BufferedWriter bufferedWriter =
+//                        new BufferedWriter(new OutputStreamWriter(outputStream,
+//                                "UTF-8"));
+//                bufferedWriter.write(query);
+//                bufferedWriter.flush();
+//                bufferedWriter.close();
+//                outputStream.close();
+//
+//
+//                connection.connect();
+//
+//
+//            } catch (Exception e) {
+//
+//
+//            }
+//
+//
+//
+//
+//            return null;
+//        }
+//
+//        @Override
+//        protected void onPostExecute(String o) {
+//            super.onPostExecute(o);
+//        }
+    //}
+
 
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
