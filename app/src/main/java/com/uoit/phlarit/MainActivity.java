@@ -5,21 +5,15 @@ package com.uoit.phlarit;
  * and the navigation drawer to create a simple UI
  */
 
-
 import android.Manifest;
 import android.app.Activity;
-import android.app.DownloadManager;
-import android.content.ContentProvider;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.net.Uri;
-import android.os.AsyncTask;
 import android.os.Build;
-import android.provider.Settings;
 import android.support.annotation.Nullable;
 import android.support.design.widget.NavigationView;
-import android.support.v4.app.ActivityCompat;
 import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentManager;
 import android.support.v4.view.GravityCompat;
@@ -29,66 +23,22 @@ import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.support.v7.widget.Toolbar;
 import android.util.Log;
-import android.util.Pair;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.widget.Toast;
 
-import com.android.volley.AuthFailureError;
-import com.android.volley.Cache;
-import com.android.volley.Network;
 import com.android.volley.Request;
 import com.android.volley.RequestQueue;
 import com.android.volley.Response;
 import com.android.volley.VolleyError;
-import com.android.volley.toolbox.BasicNetwork;
-import com.android.volley.toolbox.DiskBasedCache;
-import com.android.volley.toolbox.HurlStack;
-import com.android.volley.toolbox.JsonArrayRequest;
-import com.android.volley.toolbox.JsonObjectRequest;
-import com.android.volley.toolbox.JsonRequest;
 import com.android.volley.toolbox.StringRequest;
-import com.android.volley.toolbox.Volley;
 
-import org.apache.commons.io.IOUtils;
-
-import org.json.JSONException;
-import org.json.JSONObject;
-
-import java.io.BufferedInputStream;
-import java.io.BufferedWriter;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.io.OutputStreamWriter;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.net.URLConnection;
-import java.net.URLEncoder;
 import java.security.SecureRandom;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Date;
-
-import org.json.JSONArray;
-import org.json.simple.parser.JSONParser;
-
-import java.nio.ByteBuffer;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
-
-import android.app.IntentService;
-import android.app.PendingIntent;
-import android.content.Intent;
-import android.util.Log;
-
-import java.io.InputStream;
-import java.net.MalformedURLException;
-import java.net.URL;
-
 
 /**
  * Any fragment used inside the activity must have its
@@ -96,9 +46,7 @@ import java.net.URL;
  */
 public class MainActivity extends AppCompatActivity implements HomeFragment.OnFragmentInteractionListener, PhotoFragment.OnFragmentInteractionListener {
 
-    // Link to php file
-
-    String phpurl = "http://ec2-54-160-8-114.compute-1.amazonaws.com/addRecord.php";
+    // Volley Requestqueue is used later to send data to the postgres db
     RequestQueue requestQueue;
 
     /* The 'hamburger' icon that opens the navigation drawer*/
@@ -122,6 +70,7 @@ public class MainActivity extends AppCompatActivity implements HomeFragment.OnFr
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        // Instatiate Volley queue
         requestQueue = RequestQueueSingleton.getInstance(this.getApplicationContext())
                 .getRequestQueue();
         checkPermissions(this);
@@ -137,30 +86,15 @@ public class MainActivity extends AppCompatActivity implements HomeFragment.OnFr
 
         /* This is launching the HomeFragment when the activity is created. */
         /* Removes any fragment that may be loaded already, then loads the StartFragment*/
-
         FragmentManager fragmentManager = getSupportFragmentManager();
         fragmentManager.beginTransaction().replace(R.id.frameLayout, homeFragment).commit();
 
         /* Configure the Navigation Drawer*/
-
         setSupportActionBar(toolbar);
         drawerToggle = new ActionBarDrawerToggle(this, drawerLayout, toolbar,
                 R.string.drawer_open, R.string.drawer_close);
         setupDrawerContent(navigationView);
-
-
     }
-
-    @Override
-    protected void onStop() {
-        super.onStop();
-        if (requestQueue != null) {
-            requestQueue.cancelAll("JSONObject");
-        }
-    }
-
-
-    // -------------------------------
 
     /**
      * Must be implemented or the code wont build
@@ -169,8 +103,7 @@ public class MainActivity extends AppCompatActivity implements HomeFragment.OnFr
      */
     @Override
     public void onFragmentInteraction(Uri uri) {
-
-
+        Log.d("FragmentInteraction", "In FragmentInteraction");
     }
 
     private void setupDrawerContent(NavigationView navigationView) {
@@ -193,92 +126,27 @@ public class MainActivity extends AppCompatActivity implements HomeFragment.OnFr
         Intent intent;
         switch (menuItem.getItemId()) {
             case R.id.nav_main:
+
                 fragment = homeFragment;
                 break;
+
             case R.id.nav_photo:
+
                 fragment = photoFragment;
                 break;
+
             case R.id.nav_send:
 
-
-                // Get timestamp
-                SimpleDateFormat simpleDateFormat = new SimpleDateFormat("dd-MM-yy-hh-mm-ss");
-                String format = simpleDateFormat.format(new Date());
-                final String time = format;
-
-                /* Use SecureRandom to generate an ID */
-                SecureRandom random = new SecureRandom();
-                byte bytes[] = new byte[100];
-                random.nextBytes(bytes);
-                Base64.Encoder encoder = Base64.getUrlEncoder().withoutPadding();
-                String token = encoder.encodeToString(bytes);
-
-                final String id = token;
-
-
-                // For testing purposes just turn a string into a byte array
-                // it will appear as noise if turned into an image
-                final String byteStr = "Placeholder";
-                //byte[] byteArr = byteStr.getBytes();
-                //final String image = byteArr.toString();
-
-
-                try {
-
-                    // Attempt to get whale iamge
-
-                    // Get whale image as byte array
-//                    String whaleUrl = "https://cdn.pixabay.com/photo/2013/02/10/00/20/humpback-79855_960_720.jpg";
-//                    URL imgUrl = new URL(whaleUrl);
-//                    URLConnection connection = imgUrl.openConnection();
-//                    connection.setConnectTimeout(5000);
-//                    connection.setReadTimeout(5000);
-//                    connection.connect();
-//                    final ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-//                    IOUtils.copy(connection.getInputStream(), byteArrayOutputStream);
-                    // final String image = byteArrayOutputStream.toString();
-                    final Context context = getApplicationContext();
-                    final String locale = context.getResources().getConfiguration().locale.getCountry();
-
-                    String url = "http://ec2-54-160-8-114.compute-1.amazonaws.com/addRecord.php";
-                    StringRequest stringRequest = new StringRequest(Request.Method.POST,
-                            url,
-                            new Response.Listener<String>() {
-                                @Override
-                                public void onResponse(String response) {
-                                    Log.d("onResponse", response.toString());
-                                }
-                            },
-                            new Response.ErrorListener() {
-                                @Override
-                                public void onErrorResponse(VolleyError error) {
-
-                                    Log.e("ErrorResponse", error.toString());
-                                }
-
-                            }) {
-                        @Override
-                        protected Map<String, String> getParams() {
-                            Map<String, String> params = new HashMap<String, String>();
-
-                            params.put("id", id.trim());
-                            params.put("image", "Test".trim());
-                            params.put("time", time.trim());
-                            params.put("locale", locale.trim());
-                            return params;
-
-                        }
-
-                    };
-
-
-                    stringRequest.setTag("JSONOBject");
-                    requestQueue.add(stringRequest);
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-
+                sendData();
                 fragment = photoFragment;
+                break;
+
+            case R.id.nav_login:
+                Log.d("nav_login", "Login Pressed");
+                break;
+
+            case R.id.nav_signup:
+                Log.d("nav_signup", "Sign Up Pressed");
                 break;
 
             default:
@@ -343,6 +211,68 @@ public class MainActivity extends AppCompatActivity implements HomeFragment.OnFr
     }
 
 
+    public void sendData() {
+
+        // Get timestamp
+        SimpleDateFormat simpleDateFormat = new SimpleDateFormat("dd-MM-yy-hh-mm-ss");
+        String format = simpleDateFormat.format(new Date());
+        final String time = format;
+
+        /* Use SecureRandom to generate an ID */
+        SecureRandom random = new SecureRandom();
+        byte bytes[] = new byte[100];
+        random.nextBytes(bytes);
+        Base64.Encoder encoder = Base64.getUrlEncoder().withoutPadding();
+        String token = encoder.encodeToString(bytes);
+
+        final String id = token;
+
+        try {
+
+            final Context context = getApplicationContext();
+            final String locale = context.getResources().getConfiguration().locale.getCountry();
+
+            String url = "http://ec2-54-160-8-114.compute-1.amazonaws.com/addRecord.php";
+            StringRequest stringRequest = new StringRequest(Request.Method.POST,
+                    url,
+                    new Response.Listener<String>() {
+                        @Override
+                        public void onResponse(String response) {
+                            Log.d("onResponse", response.toString());
+                        }
+                    },
+                    new Response.ErrorListener() {
+                        @Override
+                        public void onErrorResponse(VolleyError error) {
+
+                            Log.e("ErrorResponse", error.toString());
+                        }
+
+                    }) {
+                @Override
+                protected Map<String, String> getParams() {
+                    Map<String, String> params = new HashMap<String, String>();
+
+                    params.put("id", id.trim());
+                    params.put("image", "Test".trim());
+                    params.put("time", time.trim());
+                    params.put("locale", locale.trim());
+                    return params;
+
+                }
+
+            };
+
+
+            stringRequest.setTag("JSONOBject");
+            requestQueue.add(stringRequest);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+    }
+
+
     public void checkPermissions(Activity activity) {
         PackageManager packMan = activity.getPackageManager();
         int hasWritePermission = packMan.checkPermission(android.Manifest.permission.WRITE_EXTERNAL_STORAGE, activity.getPackageName());
@@ -350,6 +280,7 @@ public class MainActivity extends AppCompatActivity implements HomeFragment.OnFr
         int hasFineLocationPermission = packMan.checkPermission(Manifest.permission.ACCESS_FINE_LOCATION, activity.getPackageName());
         int hasCoarseLocationPermission = packMan.checkPermission(Manifest.permission.ACCESS_COARSE_LOCATION, activity.getPackageName());
         int hasInternetPermission = packMan.checkPermission(Manifest.permission.INTERNET, activity.getPackageName());
+        int hasCameraPermission = packMan.checkPermission(Manifest.permission.CAMERA, activity.getPackageName());
 
         /* If the API is  greater than 22, we can use runtime permission statements. */
         if (Build.VERSION.SDK_INT >= 23) {
@@ -498,99 +429,37 @@ public class MainActivity extends AppCompatActivity implements HomeFragment.OnFr
                     // warn that default statement reached
                     break;
             }
+            switch (hasCameraPermission) {
+
+                case ((PackageManager.PERMISSION_GRANTED)): {
+                    Context context = getApplicationContext();
+                    CharSequence text = "Coarse Location permission is granted.";
+                    int duration = Toast.LENGTH_SHORT;
+
+                    Toast toast = Toast.makeText(context, text, duration);
+                    toast.show();
+
+                    break;
+                }
+                case ((PackageManager.PERMISSION_DENIED)): {
+                    Context context = getApplicationContext();
+                    CharSequence text = "Coarse Location permission is denied. Application will not function correctly.";
+                    int duration = Toast.LENGTH_SHORT;
+
+                    Toast toast = Toast.makeText(context, text, duration);
+                    toast.show();
+                    break;
+                }
+                default:
+                    // warn that default statement reached
+                    break;
+            }
 
 
         } /* If the API is lower than 23, we cannot use runtime permission statements, so we must check to see if permission has been granted. */
 
 
     }
-
-//    public class PostDataAsyncTask extends AsyncTask<String, String> {
-//
-//
-//        @Override
-//        protected String doInBackground(Void... params) {
-//            try {
-//
-//
-//
-//                /* For testing purposes, convert a Pixabay image into a byte
-//                 * array and put it in the databse
-//                 */
-//
-//                // Get timestamp
-//                SimpleDateFormat simpleDateFormat = new SimpleDateFormat("dd-MM-yy-hh-mm-ss");
-//                String format = simpleDateFormat.format(new Date());
-//                final String time = format;
-//
-//                /* Use SecureRandom to generate an ID */
-//                SecureRandom random = new SecureRandom();
-//                byte bytes[] = new byte[100];
-//                random.nextBytes(bytes);
-//                Base64.Encoder encoder = Base64.getUrlEncoder().withoutPadding();
-//                String token = encoder.encodeToString(bytes);
-//
-//                final String id = token;
-//
-//
-//                String whaleUrl = "https://cdn.pixabay.com/photo/2013/02/10/00/20/humpback-79855_960_720.jpg";
-//                URL imgUrl = new URL(whaleUrl);
-//                URLConnection connection2 = imgUrl.openConnection();
-//                connection2.setConnectTimeout(5000);
-//                connection2.setReadTimeout(5000);
-//                connection2.connect();
-//                ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-//                IOUtils.copy(connection2.getInputStream(), byteArrayOutputStream);
-//                final String image = byteArrayOutputStream.toString();
-//                Log.d("WhaleByteArray", image);
-//
-//                String postReceiverUrl = "http://ec2-54-160-8-114.compute-1" +
-//                        ".amazonaws.com/addRecord.php";
-//                URL url = new URL(postReceiverUrl);
-//                HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-//                connection.setReadTimeout(10000);
-//                connection.setConnectTimeout(15000);
-//                connection.setRequestMethod("POST");
-//                connection.setDoInput(true);
-//                connection.setDoOutput(true);
-//
-//                Uri.Builder builder = new Uri.Builder()
-//                        .appendQueryParameter("id", id)
-//                        .appendQueryParameter("image", image)
-//                        .appendQueryParameter("time", time);
-//
-//                String query = builder.build().getEncodedQuery();
-//
-//                OutputStream outputStream = connection.getOutputStream();
-//                BufferedWriter bufferedWriter =
-//                        new BufferedWriter(new OutputStreamWriter(outputStream,
-//                                "UTF-8"));
-//                bufferedWriter.write(query);
-//                bufferedWriter.flush();
-//                bufferedWriter.close();
-//                outputStream.close();
-//
-//
-//                connection.connect();
-//
-//
-//            } catch (Exception e) {
-//
-//
-//            }
-//
-//
-//
-//
-//            return null;
-//        }
-//
-//        @Override
-//        protected void onPostExecute(String o) {
-//            super.onPostExecute(o);
-//        }
-    //}
-
 
 }
 
