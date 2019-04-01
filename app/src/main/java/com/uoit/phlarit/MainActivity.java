@@ -132,7 +132,20 @@ public class MainActivity extends AppCompatActivity implements HomeFragment.OnFr
 
             case R.id.nav_photo:
 
+                /* Use SecureRandom to generate an ID */
+                SecureRandom random = new SecureRandom();
+                byte bytes[] = new byte[100];
+                random.nextBytes(bytes);
+                java.util.Base64.Encoder encoder = java.util.Base64.getUrlEncoder().withoutPadding();
+                String token = encoder.encodeToString(bytes);
+
+                final String id = token;
+
+
+
                 Intent photoIntent = new Intent(MainActivity.this, CameraActivity.class);
+                photoIntent.putExtra("SecureRandomID", id);
+
                 MainActivity.this.startActivity(photoIntent);
 
                 //fragment = photoFragment;
