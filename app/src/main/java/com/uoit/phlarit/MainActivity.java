@@ -132,7 +132,10 @@ public class MainActivity extends AppCompatActivity implements HomeFragment.OnFr
 
             case R.id.nav_photo:
 
-                fragment = photoFragment;
+                Intent photoIntent = new Intent(MainActivity.this, CameraActivity.class);
+                MainActivity.this.startActivity(photoIntent);
+
+                //fragment = photoFragment;
                 break;
 
             case R.id.nav_send:
