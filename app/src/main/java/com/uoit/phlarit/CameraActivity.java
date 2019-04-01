@@ -87,6 +87,11 @@ public class CameraActivity extends AppCompatActivity {
             if (requestCode == 1) {
                 Bitmap bitmap = BitmapFactory.decodeFile(pathToFile);
                 imageView.setImageBitmap(bitmap);
+
+                Log.d("Before", "Before sendToDatabase");
+                sendToDatabase(bitmap, globalID);
+                Log.d("After", "After sendToDatabase");
+
             }
         }
     }
@@ -104,7 +109,7 @@ public class CameraActivity extends AppCompatActivity {
                 startActivityForResult(takePic, 1);
 
 
-                sendToDatabase(photoFile, globalID);
+
             }
 
 
@@ -123,29 +128,33 @@ public class CameraActivity extends AppCompatActivity {
         } catch (IOException e) {
             Log.d("mylog", "Excep : " + e.toString());
         }
+
         return image;
 
 
     }
 
+    private String getBase64String(Bitmap bitmap) {
 
-    public String imageFileToByte(File file) {
 
-        Bitmap bm = BitmapFactory.decodeFile(file.getAbsolutePath());
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        bm.compress(Bitmap.CompressFormat.JPEG, 100, baos);
-        byte[] b = baos.toByteArray();
-        return Base64.encodeToString(b, Base64.DEFAULT);
+        ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+        // In case you want to compress your image, here it's at 40%
+        bitmap.compress(Bitmap.CompressFormat.JPEG, 40, byteArrayOutputStream);
+        byte[] byteArray = byteArrayOutputStream.toByteArray();
+
+        return Base64.encodeToString(byteArray, Base64.DEFAULT);
     }
 
-    public void sendToDatabase(File mPhoto, String mId) {
+    public void sendToDatabase(Bitmap mPhoto, String mId) {
+
+        Log.d("IN_DB", "Before try block");
         try {
 
 
             SimpleDateFormat simpleDateFormat = new SimpleDateFormat("dd-MM-yy-hh-mm-ss");
             String format = simpleDateFormat.format(new Date());
             final String time = format;
-            final String image = imageFileToByte(mPhoto);
+            final String image = getBase64String(mPhoto);
 
             final String id = mId;
 

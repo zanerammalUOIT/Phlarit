@@ -240,14 +240,12 @@ public class MainActivity extends AppCompatActivity implements HomeFragment.OnFr
         random.nextBytes(bytes);
         Base64.Encoder encoder = Base64.getUrlEncoder().withoutPadding();
         String token = encoder.encodeToString(bytes);
-
         final String id = token;
 
         try {
 
             final Context context = getApplicationContext();
             final String locale = context.getResources().getConfiguration().locale.getCountry();
-
             String url = "http://ec2-54-160-8-114.compute-1.amazonaws.com/addRecord.php";
             StringRequest stringRequest = new StringRequest(Request.Method.POST,
                     url,
@@ -274,18 +272,13 @@ public class MainActivity extends AppCompatActivity implements HomeFragment.OnFr
                     params.put("time", time.trim());
                     params.put("locale", locale.trim());
                     return params;
-
                 }
-
             };
-
-
             stringRequest.setTag("JSONOBject");
             requestQueue.add(stringRequest);
         } catch (Exception e) {
             e.printStackTrace();
         }
-
     }
 
 
