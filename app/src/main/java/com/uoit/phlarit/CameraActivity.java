@@ -33,6 +33,7 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 
 import static android.os.Environment.getExternalStoragePublicDirectory;
 
@@ -41,7 +42,7 @@ public class CameraActivity extends AppCompatActivity {
     Button btnTakePic;
     ImageView imageView;
     String pathToFile;
-    String globalID;
+
 
     // Volley Requestqueue is used later to send data to the postgres db
     RequestQueue requestQueue;
@@ -54,17 +55,7 @@ public class CameraActivity extends AppCompatActivity {
         requestQueue = RequestQueueSingleton.getInstance(this.getApplicationContext())
                 .getRequestQueue();
         setContentView(R.layout.activity_camera);
-        String extraID = "39523587912";
 
-        if (savedInstanceState == null) {
-            Bundle extras = getIntent().getExtras();
-            if (extras == null) {
-                extraID = "0000000000";
-            } else {
-                extraID = extras.getString("SecureRandomID");
-                globalID = extraID;
-            }
-        }
         btnTakePic = findViewById(R.id.btnTakePic);
 
         if (Build.VERSION.SDK_INT >= 23) {
@@ -87,6 +78,9 @@ public class CameraActivity extends AppCompatActivity {
             if (requestCode == 1) {
                 Bitmap bitmap = BitmapFactory.decodeFile(pathToFile);
                 imageView.setImageBitmap(bitmap);
+                String id = UUID.randomUUID().toString();
+
+                sendToDatabase(bitmap, id);
             }
         }
     }
@@ -104,12 +98,8 @@ public class CameraActivity extends AppCompatActivity {
                 startActivityForResult(takePic, 1);
 
 
-                sendToDatabase(photoFile, globalID);
             }
-
-
         }
-
     }
 
     private File createPhotoFile() {
@@ -125,20 +115,19 @@ public class CameraActivity extends AppCompatActivity {
         }
         return image;
 
-
     }
 
 
-    public String imageFileToByte(File file) {
+    public String imageFileToByte(Bitmap bitmap) {
 
-        Bitmap bm = BitmapFactory.decodeFile(file.getAbsolutePath());
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        bm.compress(Bitmap.CompressFormat.JPEG, 100, baos);
-        byte[] b = baos.toByteArray();
-        return Base64.encodeToString(b, Base64.DEFAULT);
+        ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+        bitmap.compress(Bitmap.CompressFormat.PNG, 100, byteArrayOutputStream);
+        byte[] byteArray = byteArrayOutputStream.toByteArray();
+        String encoded = Base64.encodeToString(byteArray, Base64.DEFAULT);
+        return encoded;
     }
 
-    public void sendToDatabase(File mPhoto, String mId) {
+    public void sendToDatabase(Bitmap mPhoto, String mId) {
         try {
 
 
@@ -146,9 +135,7 @@ public class CameraActivity extends AppCompatActivity {
             String format = simpleDateFormat.format(new Date());
             final String time = format;
             final String image = imageFileToByte(mPhoto);
-
             final String id = mId;
-
             final Context context = getApplicationContext();
             final String locale = context.getResources().getConfiguration().locale.getCountry();
 
@@ -175,15 +162,12 @@ public class CameraActivity extends AppCompatActivity {
                     Map<String, String> params = new HashMap<String, String>();
 
                     params.put("id", id.trim());
-                    params.put("image", image.trim());
+                    params.put("image", image);
                     params.put("time", time.trim());
                     params.put("locale", locale.trim());
                     return params;
-
                 }
-
             };
-
 
             stringRequest.setTag("JSONOBject");
             requestQueue.add(stringRequest);

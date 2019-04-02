@@ -10,6 +10,8 @@ import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.os.Build;
 import android.support.annotation.Nullable;
@@ -33,18 +35,21 @@ import com.android.volley.Response;
 import com.android.volley.VolleyError;
 import com.android.volley.toolbox.StringRequest;
 
+import java.io.ByteArrayOutputStream;
 import java.security.SecureRandom;
 import java.text.SimpleDateFormat;
-import java.util.Base64;
+import android.util.Base64;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 
 /**
  * Any fragment used inside the activity must have its
  * onFragment InteractionListener implemented
  */
-public class MainActivity extends AppCompatActivity implements HomeFragment.OnFragmentInteractionListener, PhotoFragment.OnFragmentInteractionListener {
+public class MainActivity extends AppCompatActivity implements HomeFragment.OnFragmentInteractionListener {
+
 
     // Volley Requestqueue is used later to send data to the postgres db
     RequestQueue requestQueue;
@@ -62,7 +67,7 @@ public class MainActivity extends AppCompatActivity implements HomeFragment.OnFr
     int duration = Toast.LENGTH_SHORT;
 
     /* Declare fragments here so they can be initialized when needed*/
-    PhotoFragment photoFragment;
+
     HomeFragment homeFragment;
 
     @Override
@@ -70,13 +75,17 @@ public class MainActivity extends AppCompatActivity implements HomeFragment.OnFr
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+
+
+
+
         // Instatiate Volley queue
         requestQueue = RequestQueueSingleton.getInstance(this.getApplicationContext())
                 .getRequestQueue();
         checkPermissions(this);
 
         /* Create instances of the fragments */
-        photoFragment = PhotoFragment.newInstance("0", ("0"));
+
         homeFragment = HomeFragment.newInstance("0", "0");
 
         /* Instatiate variables that are needed*/
@@ -132,20 +141,7 @@ public class MainActivity extends AppCompatActivity implements HomeFragment.OnFr
 
             case R.id.nav_photo:
 
-                /* Use SecureRandom to generate an ID */
-                SecureRandom random = new SecureRandom();
-                byte bytes[] = new byte[100];
-                random.nextBytes(bytes);
-                java.util.Base64.Encoder encoder = java.util.Base64.getUrlEncoder().withoutPadding();
-                String token = encoder.encodeToString(bytes);
-
-                final String id = token;
-
-
-
                 Intent photoIntent = new Intent(MainActivity.this, CameraActivity.class);
-                photoIntent.putExtra("SecureRandomID", id);
-
                 MainActivity.this.startActivity(photoIntent);
 
                 //fragment = photoFragment;
@@ -154,7 +150,7 @@ public class MainActivity extends AppCompatActivity implements HomeFragment.OnFr
             case R.id.nav_send:
 
                 sendData();
-                fragment = photoFragment;
+
                 break;
 
             case R.id.nav_login:
@@ -234,20 +230,23 @@ public class MainActivity extends AppCompatActivity implements HomeFragment.OnFr
         String format = simpleDateFormat.format(new Date());
         final String time = format;
 
-        /* Use SecureRandom to generate an ID */
-        SecureRandom random = new SecureRandom();
-        byte bytes[] = new byte[100];
-        random.nextBytes(bytes);
-        Base64.Encoder encoder = Base64.getUrlEncoder().withoutPadding();
-        String token = encoder.encodeToString(bytes);
 
-        final String id = token;
+
+        Bitmap bm = BitmapFactory.decodeResource(getResources(), R.mipmap.orangutan);
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        bm.compress(Bitmap.CompressFormat.PNG, 100, baos);
+        byte[] b = baos.toByteArray();
+        String imageString1 = android.util.Base64.encodeToString(b, Base64.DEFAULT);
+
+
+
+        final Context context = getApplicationContext();
 
         try {
-
-            final Context context = getApplicationContext();
             final String locale = context.getResources().getConfiguration().locale.getCountry();
-
+            /* Use SecureRandom to generate an ID */
+            final String id =  UUID.randomUUID().toString();
+            final String imageString = imageString1;
             String url = "http://ec2-54-160-8-114.compute-1.amazonaws.com/addRecord.php";
             StringRequest stringRequest = new StringRequest(Request.Method.POST,
                     url,
@@ -268,26 +267,20 @@ public class MainActivity extends AppCompatActivity implements HomeFragment.OnFr
                 @Override
                 protected Map<String, String> getParams() {
                     Map<String, String> params = new HashMap<String, String>();
-
-                    params.put("id", id.trim());
-                    params.put("image", "Test".trim());
-                    params.put("time", time.trim());
-                    params.put("locale", locale.trim());
+                    params.put("id", id);
+                    params.put("image", imageString);
+                    params.put("time", time);
+                    params.put("locale", locale);
                     return params;
 
                 }
 
             };
-
-
-            stringRequest.setTag("JSONOBject");
             requestQueue.add(stringRequest);
         } catch (Exception e) {
             e.printStackTrace();
         }
-
     }
-
 
     public void checkPermissions(Activity activity) {
         PackageManager packMan = activity.getPackageManager();
