@@ -32,11 +32,15 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.widget.Toast;
 
+import com.android.volley.AuthFailureError;
+import com.android.volley.DefaultRetryPolicy;
 import com.android.volley.Request;
 import com.android.volley.RequestQueue;
 import com.android.volley.Response;
+import com.android.volley.RetryPolicy;
 import com.android.volley.VolleyError;
 import com.android.volley.toolbox.StringRequest;
+import com.android.volley.toolbox.Volley;
 
 import java.io.BufferedInputStream;
 import java.io.ByteArrayOutputStream;
@@ -53,8 +57,12 @@ import java.text.SimpleDateFormat;
 
 import android.util.Base64;
 
+import org.json.JSONException;
+import org.json.JSONObject;
+
 import java.util.Date;
 import java.util.HashMap;
+import java.util.Hashtable;
 import java.util.Map;
 import java.util.Random;
 import java.util.UUID;
@@ -68,10 +76,10 @@ import static android.os.Environment.getExternalStoragePublicDirectory;
 public class MainActivity extends AppCompatActivity implements HomeFragment.OnFragmentInteractionListener {
 
     File fileSend;
-
     Uri path = Uri.parse("android.resource://com.uoit.phlarit/" + R.drawable.orangutanupload3);
-
     String fileName = path.toString();
+    public Bitmap globalBitmap;
+    public String encodedString;
 
     int serverResponseCode = 0;
     // Volley Requestqueue is used later to send data to the postgres db
@@ -175,27 +183,28 @@ public class MainActivity extends AppCompatActivity implements HomeFragment.OnFr
                 int n = rand.nextInt(100);
 
 
-                try {
-                    Bitmap bm = BitmapFactory.decodeResource(getResources(), R.drawable.orangutanupload3);
-                    String extStorageDirectory = Environment.getExternalStorageDirectory().toString();
-                    fileSend = new File(extStorageDirectory, "orangutanupload3.png");
-                    FileOutputStream outStream = new FileOutputStream(fileSend);
-                    bm.compress(Bitmap.CompressFormat.PNG, 50, outStream);
-                    outStream.flush();
-                    outStream.close();
-                    File f_path = new File(extStorageDirectory + "/orangutanupload3.png");
-                    InputStream fis = null;
-                    fis = new BufferedInputStream(new FileInputStream(f_path));
-                    File file2 = new File(Environment.getExternalStorageDirectory().toString() + "orangutanupload3.png");
-                    uploadFile(file2);
+//                try {
+//                    Bitmap bm = BitmapFactory.decodeResource(getResources(), R.drawable.orangutanupload3);
+//                    globalBitmap = bm;
+//                    String extStorageDirectory = Environment.getExternalStorageDirectory().toString();
+//                    fileSend = new File(extStorageDirectory, "orangutanupload3.png");
+//                    FileOutputStream outStream = new FileOutputStream(fileSend);
+//                    bm.compress(Bitmap.CompressFormat.PNG, 50, outStream);
+//                    outStream.flush();
+//                    outStream.close();
+//                    File f_path = new File(extStorageDirectory + "/orangutanupload3.png");
+//                    InputStream fis = null;
+//                    fis = new BufferedInputStream(new FileInputStream(f_path));
+//                    File file2 = new File(Environment.getExternalStorageDirectory().toString() + "orangutanupload3.png");
+//
+//                    Log.d("After uploadfile", "after uploadfile");
+//
+//                } catch (Exception e) {
+//                    e.printStackTrace();
+//                }
 
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-
-
-
-
+//
+//                uploadImageMethod();
                 new UploadFileAsync().execute("");
 
                 break;
@@ -261,116 +270,100 @@ public class MainActivity extends AppCompatActivity implements HomeFragment.OnFr
     }
 
 
-    public int uploadFile(File uploadImage) {
 
-        HttpURLConnection conn = null;
-        DataOutputStream dos = null;
-        String lineEnd = "\r\n";
-        String twoHyphens = "--";
-        String boundary = "*****";
-        int bytesRead, bytesAvailable, bufferSize;
-        byte[] buffer;
-        int maxBufferSize = 1 * 1024 * 1024;
-        File sourceFile = uploadImage;
 
-        String sourceFileUri = Environment.getExternalStorageDirectory().toString() + "orangutanupload3.png";
+    public void uploadImageMethod() {
 
-        if (sourceFile.isFile()) {
+        String uploadString = getStringImage(globalBitmap);
+        encodedString = uploadString;
+        sendImage(uploadString);
+    }
 
-            try {
-                String upLoadServerUri = "http://ec2-54-160-8-114.compute-1.amazonaws.com/images";
+    public String getStringImage(Bitmap bmp) {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        bmp.compress(Bitmap.CompressFormat.JPEG, 100, baos);
+        byte[] imageBytes = baos.toByteArray();
+        String encodedImage = Base64.encodeToString(imageBytes, Base64.DEFAULT);
+        return encodedImage;
+    }
 
-                // open a URL connection to the Servlet
-                FileInputStream fileInputStream = new FileInputStream(
-                        sourceFile);
-                URL url = new URL(upLoadServerUri);
+    String theurl = "http://ec2-54-160-8-114.compute-1.amazonaws.com/receiveImage.php";
 
-                // Open a HTTP connection to the URL
-                conn = (HttpURLConnection) url.openConnection();
-                conn.setDoInput(true); // Allow Inputs
-                conn.setDoOutput(true); // Allow Outputs
-                conn.setUseCaches(false); // Don't use a Cached Copy
-                conn.setRequestMethod("POST");
-                conn.setRequestProperty("Connection", "Keep-Alive");
-                conn.setRequestProperty("ENCTYPE",
-                        "multipart/form-data");
-                conn.setRequestProperty("Content-Type",
-                        "multipart/form-data;boundary=" + boundary);
-                conn.setRequestProperty("bill", sourceFileUri);
+    private void sendImage(final String image) {
+        final StringRequest stringRequest = new StringRequest(Request.Method.POST, theurl,
+                new Response.Listener<String>() {
+                    @Override
+                    public void onResponse(String response) {
+                        Log.d("upload", response);
+                        try {
+                            //JSONObject jsonObject = new JSONObject(response);
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        }
+                    }
+                },
+                new Response.ErrorListener() {
+                    @Override
+                    public void onErrorResponse(VolleyError error) {
+                        Toast.makeText(getApplicationContext(), "No internet connection", Toast.LENGTH_LONG).show();
+                    }
+                }) {
+            @Override
+            protected Map<String, String> getParams() throws AuthFailureError {
 
-                dos = new DataOutputStream(conn.getOutputStream());
-
-                dos.writeBytes(twoHyphens + boundary + lineEnd);
-                dos.writeBytes("Content-Disposition: form-data; name=\"bill\";filename=\""
-                        + sourceFileUri + "\"" + lineEnd);
-
-                dos.writeBytes(lineEnd);
-                Log.d("After write bytes", "Ok");
-
-                // create a buffer of maximum size
-                bytesAvailable = fileInputStream.available();
-
-                bufferSize = Math.min(bytesAvailable, maxBufferSize);
-                buffer = new byte[bufferSize];
-
-                // read file and write it into form...
-                bytesRead = fileInputStream.read(buffer, 0, bufferSize);
-
-                while (bytesRead > 0) {
-
-                    dos.write(buffer, 0, bufferSize);
-                    bytesAvailable = fileInputStream.available();
-                    bufferSize = Math
-                            .min(bytesAvailable, maxBufferSize);
-                    bytesRead = fileInputStream.read(buffer, 0,
-                            bufferSize);
-                }
-
-                // send multipart form data necesssary after file
-                // data...
-                dos.writeBytes(lineEnd);
-                dos.writeBytes(twoHyphens + boundary + twoHyphens
-                        + lineEnd);
-
-                // Responses from the server (code and message)
-                serverResponseCode = conn.getResponseCode();
-                String serverResponseMessage = conn
-                        .getResponseMessage();
-
-                if (serverResponseCode == 200) {
-
-                    // messageText.setText(msg);
-                    Toast.makeText(getApplicationContext(), "File Upload Complete.", Toast.LENGTH_SHORT).show();
-
-                    // recursiveDelete(mDirectory1);
-
-                }
-
-                // close the streams //
-                fileInputStream.close();
-                dos.flush();
-                dos.close();
-
-            } catch (Exception e) {
-
-                // dialog.dismiss();
-                e.printStackTrace();
-
+                Map<String, String> params = new Hashtable<String, String>();
+                params.put("image", image);
+                return params;
             }
-            // dialog.dismiss();
+        };
 
-
-            return 0;
+        {
+            int socketTimeout = 30000;
+            RetryPolicy policy = new DefaultRetryPolicy(socketTimeout, DefaultRetryPolicy.DEFAULT_MAX_RETRIES, DefaultRetryPolicy.DEFAULT_BACKOFF_MULT);
+            stringRequest.setRetryPolicy(policy);
+            RequestQueue requestQueue = Volley.newRequestQueue(this);
+            requestQueue.add(stringRequest);
         }
-
-        return 0;
     }
 
 
     private class UploadFileAsync extends AsyncTask<String, Void, String> {
 
+        public String imageString;
+
+        public String getStringImage(Bitmap bmp) {
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            bmp.compress(Bitmap.CompressFormat.PNG, 50, baos);
+            byte[] imageBytes = baos.toByteArray();
+            String encodedImage = Base64.encodeToString(imageBytes, Base64.DEFAULT);
+            return encodedImage;
+        }
 
         public void sendData() {
+
+            try {
+                Log.d("In catch block", "123");
+                Bitmap bm = BitmapFactory.decodeResource(getResources(), R.drawable.orangutanupload3);
+                globalBitmap = bm;
+                String extStorageDirectory = Environment.getExternalStorageDirectory().toString();
+                fileSend = new File(extStorageDirectory, "orangutanupload3.png");
+                FileOutputStream outStream = new FileOutputStream(fileSend);
+                bm.compress(Bitmap.CompressFormat.PNG, 50, outStream);
+                outStream.flush();
+                outStream.close();
+                File f_path = new File(extStorageDirectory + "/orangutanupload3.png");
+                InputStream fis = null;
+                fis = new BufferedInputStream(new FileInputStream(f_path));
+                File file2 = new File(Environment.getExternalStorageDirectory().toString() + "orangutanupload3.png");
+
+                this.imageString = getStringImage(bm);
+
+            } catch (Exception e) {
+
+                e.printStackTrace();
+            }
+
+            Log.d("After uploadfile", "after uploadfile");
 
             final Context context = getApplicationContext();
 
@@ -381,6 +374,7 @@ public class MainActivity extends AppCompatActivity implements HomeFragment.OnFr
             SimpleDateFormat simpleDateFormat = new SimpleDateFormat("dd-MM-yy-hh-mm-ss");
             String format = simpleDateFormat.format(new Date());
             final String time = format;
+            final String imageUpload = this.imageString;
 
             // Get imageName
             final String imageName = "orangutanupload3.png";
@@ -410,27 +404,24 @@ public class MainActivity extends AppCompatActivity implements HomeFragment.OnFr
                     protected Map<String, String> getParams() {
                         Map<String, String> params = new HashMap<String, String>();
                         params.put("id", id);
+                        params.put("image", imageUpload);
                         params.put("time", time);
                         params.put("locale", locale);
-                        params.put("imageName", imageName);
+
                         return params;
 
                     }
-
                 };
                 requestQueue.add(stringRequest);
             } catch (Exception e) {
                 e.printStackTrace();
             }
-
-
         }
-
 
         final Context context = getApplicationContext();
 
         protected String doInBackground(String... params) {
-            uploadFile(new File(Environment.getExternalStorageDirectory().toString() + "orangutanupload3.png"));
+            //uploadFile(new File(Environment.getExternalStorageDirectory().toString() + "orangutanupload3.png"));
             sendData();
             return "Executed";
         }

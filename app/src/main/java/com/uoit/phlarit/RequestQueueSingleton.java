@@ -1,11 +1,13 @@
 package com.uoit.phlarit;
 
 import android.content.Context;
+import android.graphics.Bitmap;
+import android.util.LruCache;
 
 import com.android.volley.RequestQueue;
 import com.android.volley.toolbox.Volley;
 
-public class RequestQueueSingleton {
+public class RequestQueueSingleton  {
 
     private static RequestQueueSingleton requestQueueSingleton;
 
