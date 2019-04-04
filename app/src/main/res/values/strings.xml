@@ -16,7 +16,9 @@
     <string name="drawer_main">Main Menu</string>
     <string name="drawer_photo">Take Photo</string>
     <string name="drawer_send">Send</string>
-    <string name="drawer_map">Map</string>
+    <string name="drawer_login">Login</string>
+    <string name="drawer_signup">Sign Up</string>
+
 
     <!-- Strings for left side navigation drawer, first group -->
     <string name="drawer_group_name">Communicate</string>
