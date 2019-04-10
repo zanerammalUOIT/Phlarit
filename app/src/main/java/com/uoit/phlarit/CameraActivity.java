@@ -44,6 +44,7 @@ import static android.os.Environment.getExternalStoragePublicDirectory;
 
 public class CameraActivity extends AppCompatActivity {
 
+    // Declare the variables that this camera activity will use
     Button btnTakePic;
     ImageView imageView;
     String pathToFile;
@@ -63,6 +64,7 @@ public class CameraActivity extends AppCompatActivity {
 
         btnTakePic = findViewById(R.id.btnTakePic);
 
+        // Check for build versions and apply the proper permissions
         if (Build.VERSION.SDK_INT >= 23) {
             requestPermissions(new String[]{Manifest.permission.CAMERA, Manifest.permission.WRITE_EXTERNAL_STORAGE}, 2);
         }
@@ -77,6 +79,7 @@ public class CameraActivity extends AppCompatActivity {
     }
 
     @Override
+    // if the activity has run with no errors, save the picture a bitmap
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         if (resultCode == RESULT_OK) {
@@ -95,6 +98,7 @@ public class CameraActivity extends AppCompatActivity {
         }
     }
 
+    // Create intent for user to begin taking a picture and store it
     private void dispatchPictureTakerAction() {
         Intent takePic = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
         if (takePic.resolveActivity(getPackageManager()) != null) {
@@ -110,6 +114,7 @@ public class CameraActivity extends AppCompatActivity {
         }
     }
 
+    // Create file for the photo to be saved under 
     private File createPhotoFile() {
         String name = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
         File storageDir = getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES);
@@ -125,7 +130,7 @@ public class CameraActivity extends AppCompatActivity {
 
     }
 
-
+// Convert the file/image to a byte array so that it can be sent to the database
     public String imageFileToByte(Bitmap bitmap) {
 
         ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
@@ -135,6 +140,7 @@ public class CameraActivity extends AppCompatActivity {
         return encoded;
     }
 
+    // Send the created byte array to the database
     private class UploadFileAsync extends AsyncTask<String, Void, String> {
 
 
@@ -162,7 +168,7 @@ public class CameraActivity extends AppCompatActivity {
 
 
 
-
+    // Add the picture taken to the database and send to the the provided url
             try {
                 String url = "http://ec2-54-160-8-114.compute-1.amazonaws.com/addRecord.php";
                 StringRequest stringRequest = new StringRequest(Request.Method.POST,
@@ -182,6 +188,7 @@ public class CameraActivity extends AppCompatActivity {
 
                         }) {
                     @Override
+                    // Useful information that keeps track of the id of the image, the image, the time it was sent and the country
                     protected Map<String, String> getParams() {
                         Map<String, String> params = new HashMap<String, String>();
                         params.put("id", idRandom);
